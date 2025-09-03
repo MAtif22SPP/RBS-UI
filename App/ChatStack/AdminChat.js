@@ -24,6 +24,7 @@ import { moderateScale } from "react-native-size-matters";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import CustomStatusBar from "../utils/CustomStatusBar";
 import ImagePicker from "react-native-image-crop-picker";
+import { handleCaptureCameraImage, handleSingleGalleryImage } from "../utils/handlers/imagePickersHandler";
 
 const EMOJIS = [
   // 😀 Smileys
@@ -92,50 +93,78 @@ export default function AdminChat() {
   }, []);
 
 
-  const pickImage = async () => {
-    try {
-      const image = await ImagePicker.openPicker({
-        width: 500,
-        height: 600,
-        cropping: false,
-        mediaType: "photo",
-      });
+  // const pickImage = async () => {
+  //   try {
+  //     const image = await ImagePicker.openPicker({
+  //       width: 500,
+  //       height: 600,
+  //       cropping: false,
+  //       mediaType: "photo",
+  //     });
 
-      const msg = {
-        _id: Math.random().toString(36).slice(2),
-        text: "",
-        image: image.path,  // 🔥 GiftedChat image support karta hai
-        createdAt: new Date(),
+  //     const msg = {
+  //       _id: Math.random().toString(36).slice(2),
+  //       text: "",
+  //       image: image.path,  // 🔥 GiftedChat image support karta hai
+  //       createdAt: new Date(),
+  //       user: { _id: 1, name: "You" },
+  //     };
+
+  //     setMessages((prev) => GiftedChat.append(prev, [msg]));
+  //   } catch (err) {
+  //     console.log("Error picking image:", err);
+  //   }
+  // };
+
+  const handleImageUpload = async imagePath => {
+    try {
+      if (!imagePath) return;
+
+      const tempId = new Date().getTime().toString();
+      const tempMessage = {
+        _id: tempId,
+        image: imagePath, // Local file URI
+        createdAt: new Date().toISOString(),
         user: { _id: 1, name: "You" },
+        pendingUpload: true, // Custom flag
       };
 
-      setMessages((prev) => GiftedChat.append(prev, [msg]));
-    } catch (err) {
-      console.log("Error picking image:", err);
+      setMessages(previousMessages =>
+        GiftedChat.append(previousMessages, [tempMessage]),
+      );
+
+      // const imageUrl = await uploadImage('OneToOneChat', imagePath);
+
+      // // Replace the pending message with the uploaded one
+      // const uploadedMessage = {
+      //   ...tempMessage,
+      //   image: imageUrl,
+      //   pendingUpload: false,
+      // };
+
+      // setMessages(previousMessages => {
+      //   const updated = previousMessages.map(msg =>
+      //     msg._id === tempId ? uploadedMessage : msg,
+      //   );
+      //   return updated;
+      // });
+      // await sendMessage(chatRoomId, uploadedMessage, providerData, clientData);
+    } catch (error) {
+      console.error('Image upload error:', error);
     }
   };
 
-  const pickFile = async () => {
-    try {
-      const file = await ImagePicker.openPicker({
-        multiple: false,
-        mediaType: "any",
-      });
-
-      const msg = {
-        _id: Math.random().toString(36).slice(2),
-        text: file.filename || "📎 File Attached",
-        file: file.path,   // custom key
-        createdAt: new Date(),
-        user: { _id: 1, name: "You" },
-      };
-
-      setMessages((prev) => GiftedChat.append(prev, [msg]));
-    } catch (err) {
-      console.log("Error picking file:", err);
-    }
+  const handleCameraCapture = async () => {
+    Keyboard.dismiss();
+    const imagePath = await handleCaptureCameraImage();
+    handleImageUpload(imagePath);
   };
 
+  const handleImagePick = async () => {
+    Keyboard.dismiss();
+    const imagePath = await handleSingleGalleryImage();
+    handleImageUpload(imagePath);
+  };
   const renderInputToolbar = (props) => {
     return (
       <View>
@@ -165,8 +194,9 @@ export default function AdminChat() {
                 text={composerText}
                 onTextChanged={setComposerText}
                 textInputStyle={styles.composer}
+                composerHeight={40}
                 placeholder="Type a message..."
-                placeholderTextColor="#999"
+                placeholderTextColor="#040202ff"
               />
 
               {/* Send Button */}
@@ -187,11 +217,11 @@ export default function AdminChat() {
               >
                 <Icon name="send" size={22} color="#0b84ff" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.pickerStyler, { marginRight: 3 }]} onPress={pickImage}>
+              <TouchableOpacity style={[styles.pickerStyler, { marginRight: 3 }]} onPress={handleCameraCapture}>
                 <Text>📷</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.pickerStyler} onPress={pickFile}>
+              <TouchableOpacity style={styles.pickerStyler} onPress={handleImagePick}>
                 <Text>📎</Text>
               </TouchableOpacity>
             </View>
@@ -390,8 +420,8 @@ const styles = StyleSheet.create({
   composer: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: Platform.OS === "ios" ? 10 : 6,
-    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 6 : 6,
+    paddingHorizontal: 16,
     color: "#000",
     borderRadius: 20,
     borderWidth: 1,
@@ -435,7 +465,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, padding: moderateScale(3),
     borderRadius: moderateScale(10), borderColor: '#999'
   },
-   modalOverlay: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
